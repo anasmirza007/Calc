@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { currency, rateFmt } from "@/lib/calculator";
+import { printQuote } from "@/lib/quote";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   TrendingUp,
@@ -14,10 +16,33 @@ import {
   Coins,
   History,
   Trash2,
+  Search,
+  CopyPlus,
+  Printer,
 } from "lucide-react";
 
 export default function Dashboard({ onNavigate }) {
-  const { history, config, deleteCalculation, clearHistory } = useApp();
+  const { history, config, deleteCalculation, clearHistory, setDraft } = useApp();
+  const [query, setQuery] = useState("");
+
+  const reuse = (rec) => {
+    setDraft({ ...rec.input });
+    onNavigate("calculate");
+  };
+
+  const q = query.trim().toLowerCase();
+  const filtered = history.filter((r) => {
+    if (!q) return true;
+    return [
+      r.input?.supplierName,
+      r.input?.supplierCode,
+      r.result?.supplierCode,
+      r.result?.category?.name,
+      r.result?.routeMeta?.name,
+      r.input?.shippingMethod,
+    ].some((v) => String(v || "").toLowerCase().includes(q));
+  });
+  const visible = q ? filtered.slice(0, 15) : filtered.slice(0, 6);
 
   const totalCalcs = history.length;
   const avgPerMeter =
@@ -103,6 +128,14 @@ export default function Dashboard({ onNavigate }) {
                 <MiniStat label="Meters" value={latest.input?.metersInRoll} />
                 <MiniStat label="Weight" value={`${latest.input?.weight} kg`} />
               </div>
+              <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => reuse(latest)} data-testid="latest-reuse-btn">
+                  <CopyPlus className="h-4 w-4" /> Reuse
+                </Button>
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => printQuote(latest)} data-testid="latest-export-btn">
+                  <Printer className="h-4 w-4" /> Export PDF
+                </Button>
+              </div>
             </div>
           ) : (
             <EmptyState onNavigate={onNavigate} />
@@ -115,8 +148,8 @@ export default function Dashboard({ onNavigate }) {
             Convert prices to ZAR manually before entering.
           </p>
           <div className="space-y-3">
-            <RateRow icon={IndianRupee} label="1 INR" value={config.exchangeRates?.inrToZar} />
-            <RateRow icon={Coins} label="1 CNY" value={config.exchangeRates?.cnyToZar} />
+            <RateRow icon={IndianRupee} label="1 INR" value={config.currencyRates?.INR} />
+            <RateRow icon={Coins} label="1 CNY" value={config.currencyRates?.CNY} />
           </div>
           <p className="mt-4 text-[11px] text-muted-foreground">
             Edit these in the Configuration tab.
@@ -143,13 +176,31 @@ export default function Dashboard({ onNavigate }) {
             </Button>
           )}
         </div>
+
+        {history.length > 0 && (
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              data-testid="history-search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by supplier, code, category or route…"
+              className="pl-9"
+            />
+          </div>
+        )}
+
         {history.length === 0 ? (
           <Card className="rounded-lg border-dashed p-8 text-center text-sm text-muted-foreground">
             No calculations yet.
           </Card>
+        ) : visible.length === 0 ? (
+          <Card className="rounded-lg border-dashed p-8 text-center text-sm text-muted-foreground" data-testid="history-no-results">
+            No calculations match “{query}”.
+          </Card>
         ) : (
           <div className="space-y-2">
-            {history.slice(0, 6).map((r, i) => (
+            {visible.map((r, i) => (
               <Card
                 key={r.id}
                 data-testid={`history-row-${i}`}
@@ -166,18 +217,18 @@ export default function Dashboard({ onNavigate }) {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
+                <div className="flex items-center gap-1">
+                  <div className="mr-2 text-right">
                     <p className="font-mono text-lg font-bold text-success">{currency(r.result?.costPerMeter)}<span className="text-xs font-normal text-muted-foreground">/m</span></p>
                     <p className="text-xs text-muted-foreground">{currency(r.result?.totalLandedCost)} total</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteCalculation(r.id)}
-                    data-testid={`delete-calc-${i}`}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => reuse(r)} data-testid={`reuse-calc-${i}`} className="text-muted-foreground hover:text-primary" title="Reuse">
+                    <CopyPlus className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => printQuote(r)} data-testid={`export-calc-${i}`} className="text-muted-foreground hover:text-primary" title="Export PDF">
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => deleteCalculation(r.id)} data-testid={`delete-calc-${i}`} className="text-muted-foreground hover:text-destructive" title="Delete">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

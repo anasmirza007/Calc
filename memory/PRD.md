@@ -20,16 +20,18 @@ Import/textile business owner in South Africa pricing rolls of goods (Trims, Lac
 - Fully configurable pricing; exchange rates reference-only (no auto-conversion); data persists across sessions.
 
 ## Implemented (2026-06)
-- Dashboard with metrics, most-recent card, exchange-rate reference, recent history with timestamps + delete + clear-all.
-- Live calculator with validation, cost breakdown, cost-tier badge, copy supplier code, save to history; draft persists across tab switches.
-- Configuration: shipping rates per route/method/tier, weight tiers, categories, duties/fees/tax, cost-tier bands, custom rules, exchange rates, reset-to-defaults — all editable + persisted.
-- Responsive (desktop pill nav + mobile bottom nav). Consistent en-ZA currency formatting.
-- Verified: testing agent 100% of core flows; engine reference case R92,05/m, R828,46 total.
+- Dashboard with metrics, most-recent card, exchange-rate reference, history with search, timestamps, reuse, PDF export, delete + clear-all.
+- Live calculator: multi-currency buying price (INR/CNY/ZAR) auto-converted to ZAR; per-meter / per-roll price basis; quantity + unit (roll/meter/pcs) → order total; sub-category; import-duty toggle (Yes configurable % / No 0%); flat per-kg shipping (Air Safe / Air+ / Ship, rate × weight, no tiers, rates in route source currency); validation; cost breakdown; cost-tier supplier code; copy code; PDF quote export.
+- Suppliers & Products master tabs: full CRUD, seeded defaults, one-tap "Use" auto-fills the calculator; in-calculator quick-load selects.
+- Configuration: per-route/per-method shipping rates, currency rates, categories + comma-separated sub-categories, duty/handling/tax, cost-tier bands, custom rules (category + route), export/import (deep-merged over defaults), reset.
+- Persistence: config (ipc.config.v2, version-gated), history, suppliers, products in localStorage. Draft survives tab switches.
+- 5-tab responsive nav (desktop pill / tablet row / mobile bottom bar). Consistent en-ZA currency.
+- Verified by testing agent across 3 iterations (latest 95%, no crashes). Engine unit-checked: INR 100/m ×0.21×9 = R189 product, per-kg shipping + duty toggle + order total all correct.
 
 ## Backlog
-- P1: Export/share a calculation (PDF/CSV), duplicate a past calculation into the form.
-- P2: Search/filter history; per-category customs duty override; config import/export (JSON).
-- P2: Versioned config migration to back-fill new nested default keys for existing users.
+- P1: Duplicate-with-edit from a saved calculation; export history as CSV.
+- P2: Per-category duty override; live FX fetch (optional online mode); deep-merge validation warnings when a route rate is 0.
+- P2: Stack mobile shipping-rate table columns under 480px.
 
-## Next Tasks
-- Awaiting user feedback on real pricing values and any additional routes/categories.
+## Original engine model (superseded)
+- v1 used weight tiers + ZAR-only pricing. v2 replaced tiers with flat per-kg shipping and added multi-currency auto-conversion + duty toggle (config key bumped to ipc.config.v2).

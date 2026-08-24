@@ -2,8 +2,9 @@ import { ROUTES } from "@/lib/defaults";
 
 // ---------------------------------------------------------------------------
 // Import Landed Cost calculation engine.
-// Pure, dependency-free functions. Accepts an input + config and returns a
-// full breakdown. Safe to unit-test in isolation.
+// Pure, dependency-free. Accepts an input + config and returns a full
+// breakdown. Handles multi-currency (auto-converts to ZAR), per-meter/per-roll
+// buying price, flat per-kg shipping (no weight tiers) and an optional duty.
 // ---------------------------------------------------------------------------
 
 const num = (v) => {
@@ -13,13 +14,13 @@ const num = (v) => {
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-export function findWeightTier(weight, tiers = []) {
-  if (!tiers.length) return null;
-  const w = num(weight);
-  const match = tiers.find(
-    (t) => w >= num(t.min) && (t.max == null || w < num(t.max))
-  );
-  return match || tiers[tiers.length - 1];
+export function getRouteMeta(routeId) {
+  return ROUTES.find((r) => r.id === routeId) || null;
+}
+
+export function toZar(amount, currency, currencyRates = {}) {
+  const rate = num(currencyRates?.[currency]);
+  return num(amount) * (Number.isFinite(rate) ? rate : 1);
 }
 
 export function findCostTier(costPerMeter, costTiers = []) {
@@ -29,11 +30,6 @@ export function findCostTier(costPerMeter, costTiers = []) {
   return match || costTiers[costTiers.length - 1];
 }
 
-export function getRouteMeta(routeId) {
-  return ROUTES.find((r) => r.id === routeId) || null;
-}
-
-// Validate a calculation input. Returns { valid, errors: {field: message} }.
 export function validateInput(input) {
   const errors = {};
   const requirePositive = (field, label, allowZero = false) => {
@@ -47,10 +43,13 @@ export function validateInput(input) {
     }
   };
 
-  requirePositive("pricePerMeter", "Price per meter", true);
+  requirePositive("buyingPrice", "Buying price", true);
   requirePositive("metersInRoll", "Meters in roll");
   requirePositive("weight", "Weight");
+  requirePositive("quantity", "Quantity");
 
+  if (!input.currency) errors.currency = "Currency is required";
+  if (!input.priceBasis) errors.priceBasis = "Price basis is required";
   if (!input.routeId) errors.routeId = "Route is required";
   if (!input.shippingMethod) errors.shippingMethod = "Shipping method is required";
   if (!input.category) errors.category = "Product category is required";
@@ -60,18 +59,13 @@ export function validateInput(input) {
   return { valid: Object.keys(errors).length === 0, errors };
 }
 
-// Deterministic 3-digit identifier derived from supplier code/name.
 function supplierDigits(input) {
   const seed = String(input.supplierCode || input.supplierName || "SUP");
   let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  }
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   return String(hash % 1000).padStart(3, "0");
 }
 
-// Supplier code = categoryLetter + routeLetter + supplierId(3) + costTier(1) + meters
-// e.g. Lace + India + roll of 9m at Low tier => "LI0170 09" => "LI017009"
 export function generateSupplierCode({ category, routeMeta, supplierDigits: sd, costTierId, metersInRoll }) {
   const catLetter = (category?.abbr || category?.name || "X").toString().trim().charAt(0).toUpperCase() || "X";
   const routeLetter = (routeMeta?.sourceLetter || "X").toUpperCase();
@@ -80,16 +74,14 @@ export function generateSupplierCode({ category, routeMeta, supplierDigits: sd, 
   return `${catLetter}${routeLetter}${sd}${tier}${meters}`;
 }
 
-// Apply matching custom rules. Returns { total, applied: [...] }.
 function applyCustomRules(config, ctx) {
   const rules = config.customRules || [];
   const applied = [];
   let total = 0;
   for (const rule of rules) {
     const catOk = rule.category === "any" || rule.category === ctx.categoryId;
-    const tierOk = rule.tierId === "any" || rule.tierId === ctx.tierId;
     const routeOk = rule.routeId === "any" || rule.routeId === ctx.routeId;
-    if (catOk && tierOk && routeOk) {
+    if (catOk && routeOk) {
       const amount =
         rule.adjustType === "flat"
           ? num(rule.value) || 0
@@ -101,34 +93,38 @@ function applyCustomRules(config, ctx) {
   return { total, applied };
 }
 
-// Main engine. Returns a full breakdown object (never throws).
 export function calculateLandedCost(input, config) {
   const { valid, errors } = validateInput(input);
-  if (!valid) {
-    return { valid: false, errors };
-  }
+  if (!valid) return { valid: false, errors };
 
-  const pricePerMeter = num(input.pricePerMeter);
+  const rates = config.currencyRates || {};
+  const currency = input.currency || "ZAR";
   const metersInRoll = num(input.metersInRoll);
   const weight = num(input.weight);
+  const quantity = num(input.quantity) || 1;
 
-  const productCost = pricePerMeter * metersInRoll;
+  // Buying price -> ZAR, then per-roll product cost.
+  const priceZar = toZar(num(input.buyingPrice), currency, rates);
+  const productCost =
+    input.priceBasis === "per_roll" ? priceZar : priceZar * metersInRoll;
 
-  const tier = findWeightTier(weight, config.weightTiers);
   const routeMeta = getRouteMeta(input.routeId);
 
-  const ratePerKg =
-    config.shippingRates?.[input.routeId]?.[input.shippingMethod]?.[tier?.id] ?? 0;
+  // Shipping rate is stored in the route's source currency -> convert -> per kg.
+  const shipRateSrc = num(config.shippingRates?.[input.routeId]?.[input.shippingMethod]) || 0;
+  const ratePerKg = toZar(shipRateSrc, routeMeta?.currency || "ZAR", rates);
   const shippingCost = ratePerKg * weight;
 
-  const customsDuty = (productCost * (num(config.customsDutyRate) || 0)) / 100;
+  const dutyEnabled = input.dutyEnabled !== false; // default on
+  const effectiveDutyRate = dutyEnabled ? num(config.dutyRate) || 0 : 0;
+  const customsDuty = (productCost * effectiveDutyRate) / 100;
+
   const handlingPercent = (productCost * (num(config.handlingFeeRate) || 0)) / 100;
   const handlingFlat = num(config.handlingFeeFlat) || 0;
   const handlingFee = handlingPercent + handlingFlat;
 
   const { total: customAdjustment, applied: appliedRules } = applyCustomRules(config, {
     categoryId: input.category,
-    tierId: tier?.id,
     routeId: input.routeId,
     productCost,
   });
@@ -139,6 +135,9 @@ export function calculateLandedCost(input, config) {
 
   const costPerRoll = totalLandedCost;
   const costPerMeter = metersInRoll > 0 ? totalLandedCost / metersInRoll : 0;
+
+  const orderTotal =
+    input.qtyUnit === "meter" ? costPerMeter * quantity : costPerRoll * quantity;
 
   const costTier = findCostTier(costPerMeter, config.costTiers);
   const category = (config.categories || []).find((c) => c.id === input.category) || null;
@@ -155,9 +154,13 @@ export function calculateLandedCost(input, config) {
     valid: true,
     errors: {},
     breakdown: {
+      priceZar: round2(priceZar),
+      currency,
       productCost: round2(productCost),
       shippingCost: round2(shippingCost),
       ratePerKg: round2(ratePerKg),
+      dutyEnabled,
+      dutyRate: effectiveDutyRate,
       customsDuty: round2(customsDuty),
       handlingFee: round2(handlingFee),
       customAdjustment: round2(customAdjustment),
@@ -165,10 +168,12 @@ export function calculateLandedCost(input, config) {
       subtotal: round2(subtotal),
       tax: round2(tax),
     },
-    weightTier: tier,
     costTier,
     routeMeta,
     category,
+    quantity,
+    qtyUnit: input.qtyUnit,
+    orderTotal: round2(orderTotal),
     totalLandedCost: round2(totalLandedCost),
     costPerRoll: round2(costPerRoll),
     costPerMeter: round2(costPerMeter),
@@ -182,7 +187,6 @@ export const currency = (n) =>
     maximumFractionDigits: 2,
   })}`;
 
-// Reference exchange-rate formatter (same en-ZA locale for consistency).
 export const rateFmt = (n) =>
   Number(n || 0).toLocaleString("en-ZA", {
     minimumFractionDigits: 2,

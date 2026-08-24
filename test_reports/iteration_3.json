@@ -1,0 +1,36 @@
+{
+  "summary": "Frontend-only E2E testing of iteration 3 (multi-currency, per-kg flat shipping, duty toggle, Suppliers/Products masters, config accordion + import/export). Verified all 5 tabs (desktop + mobile nav), calculator engine math for INR/CNY/ZAR, price basis toggle, all 3 shipping methods, duty on/off, quantity units (roll/meter), validation (empty/zero/negative), save->dashboard->reload persistence, history search, reuse, PDF quote popup, copy code, Suppliers/Products add/edit/delete/Use prefill, in-calculator load-supplier/load-product quick loads, config rate/currency/duty/subcategory edits with live recompute + persistence, config export download, and the iteration-2 import regression. Core app is stable - no crashes, no white-screen, all buttons clickable. 2 substantive findings (expected-value mismatch vs default lace rule; shallow-merge data loss on partial config import) plus 2 minor issues.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CalculatorPage.copyCode", "issue": "navigator.clipboard.writeText() rejection is unhandled -> CRA dev overlay 'Uncaught runtime errors: NotAllowedError: Failed to execute writeText' appears, and the success toast 'Supplier code copied' is shown even when the copy failed. Wrap in promise .then/.catch and only toast on success.", "selector": "[data-testid=\"copy-code-btn\"]", "priority": "MINOR"},
+      {"component": "Select (route/currency/category)", "issue": "React warning: 'Select is changing from uncontrolled to controlled' (value={form.x || undefined}). Cosmetic console noise only.", "selector": "[data-testid=\"select-category\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Config import (partial JSON)", "issue": "Regression from iteration 2 is FIXED - importing {categories:[...], shippingRates:{india-sa:{...}}} imports cleanly with no white-screen and garbage JSON is rejected with 'Invalid configuration file' toast. HOWEVER the merge is shallow (spread over DEFAULT_CONFIG), so nested maps are replaced wholesale: after importing a file containing only india-sa shipping rates, china-sa rates were lost and a China-route calculation silently used 'Shipping (5 kg @ R 0,00/kg)' = R 0,00 with no warning. Same risk for a partial currencyRates object. Recommend a per-route/per-method deep merge in Configuration.importConfig and storage.normaliseConfig.", "affected_selectors": ["[data-testid=\"import-config-input\"]", "[data-testid=\"rate-china-sa-ship\"]"]}
+    ],
+    "design_issues": [
+      {"screen": "Configuration → Shipping Rates (390px mobile)", "issues": ["3-column rate table overflows its card; the third column (Ship) is off-screen until horizontally scrolled and there is no visible scroll affordance. Inputs are still reachable/editable after scroll, so low priority."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Reconcile the reference expectations: request stated Lace+India+Ship / INR 100 per-meter / 9 m / 5 kg / qty 3 => R 56,20 per meter, R 505,77 per roll, R 1 517,31 order total, duty-off R 473,17. Actual UI shows R 56,92 / R 512,29 / R 1 536,87 and duty-off R 479,69 because the seeded default custom rule 'Fragile Lace surcharge' (+3% of product cost = R 5,67) is correctly applied for category=lace. Engine math is internally consistent and every other component matches (product R 189,00 = 100x0.21x9; shipping R 63,00 = 60x0.21x5; duty R 28,35; handling R 159,45; VAT 15%). Either the expected values are stale or the default lace rule should not ship enabled - main agent to confirm.",
+    "Deep-merge nested config objects (shippingRates, currencyRates, per-route method maps) on import/normalise so a partial import cannot silently zero out a route's shipping rate.",
+    "Handle clipboard write rejection in CalculatorPage.copyCode and only show the success toast on resolve.",
+    "Optional: give the mobile shipping-rate table a scroll hint or stack the 3 methods vertically under 480px."
+  ],
+  "critical_code_review_comments": [
+    "storage.normaliseConfig and Configuration.importConfig both use `{...DEFAULT_CONFIG, ...raw}` (shallow). Any stored/imported config missing a nested key (e.g. shippingRates['china-sa']) yields rate 0 at calculation time via `num(...) || 0` with no user-visible warning - prefer explicit deep merge + validation.",
+    "calculator.js computes shipping rate as `num(config.shippingRates?.[routeId]?.[method]) || 0`; a missing rate should surface a validation error/warning in the UI instead of quietly producing R 0,00 shipping.",
+    "qtyUnit 'pcs' falls through to the per-roll branch in orderTotal (`qtyUnit === 'meter' ? perMeter : perRoll`). Verify that pieces priced as whole rolls is intended."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (no backend)", "frontend": "95%" },
+  "seed_data_creation": "Created and then deleted TEST supplier 'TEST Delhi Trims' and TEST product 'TEST Denim Roll'; saved TEST calculations to history. Browser automation runs use a fresh profile each time so localStorage test data does not persist between runs. Config was reset to defaults at the end of each config test.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "None required - no auth",
+  "context_for_next_testing_agent": "All 5 tabs, calculator engine (INR/CNY/ZAR conversion, per_meter/per_roll basis, Air Safe 800/Air+ 650/Ship 60 INR per kg, duty on/off, qty unit roll/meter order total), validation, save/reuse/export/search on dashboard, PDF popup, suppliers & products CRUD + Use prefill, in-calculator quick loads, config accordion edits + persistence + export download + import (garbage rejected, partial accepted) were all verified working on iteration 3. Note: new suppliers/products are PREPENDED to the list, so use-supplier-0 / product-card-0 is the most recently added item. section-shipping is open by default - clicking section-shipping COLLAPSES it (rate-* inputs then disappear). Remaining gaps intentionally not retested: full custom-rule CRUD in section-rules, cost-tier add/remove, category add/remove.",
+  "rca_of_the_issue": "Expected-value mismatch RCA: DEFAULT_CONFIG.customRules seeds 'rule-fragile-lace' (+3% of product cost, category=lace, route=any) which applyCustomRules correctly applies to every Lace calculation, adding R 5,67 to the subtotal and R 6,52 to the total after VAT - exactly the delta between the requested reference figures and the live UI. Partial-import RCA: importConfig does `setConfig({...structuredClone(DEFAULT_CONFIG), ...data})`; because the spread is shallow, `data.shippingRates` (containing only india-sa) replaces the entire default map, so `config.shippingRates['china-sa']` becomes undefined and calculator.js falls back to 0."
+}

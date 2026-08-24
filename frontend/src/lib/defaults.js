@@ -1,7 +1,17 @@
-// Default configuration seeded into localStorage on first run.
-// All values are editable by the user in the Configuration tab.
+// Default configuration + reference data seeded into localStorage.
+// All values editable by the user in the Configuration / Suppliers / Products tabs.
 
-export const SHIPPING_METHODS = ["Air", "Ship"];
+export const CURRENCIES = ["INR", "CNY", "ZAR"];
+
+export const QTY_UNITS = ["roll", "meter", "pcs"];
+
+export const PRICE_BASIS = [
+  { id: "per_meter", label: "Per meter" },
+  { id: "per_roll", label: "Per roll" },
+];
+
+// Flat per-kg shipping methods (no weight tiers).
+export const SHIPPING_METHODS = ["Air Safe", "Air+", "Ship"];
 
 export const ROUTES = [
   { id: "india-sa", name: "India → South Africa", source: "India", sourceLetter: "I", currency: "INR" },
@@ -9,71 +19,63 @@ export const ROUTES = [
 ];
 
 export const DEFAULT_CONFIG = {
-  version: 1,
+  version: 2,
 
   categories: [
-    { id: "trims", name: "Trims", abbr: "TR" },
-    { id: "lace", name: "Lace", abbr: "LC" },
-    { id: "habby", name: "Habby Items", abbr: "HB" },
-    { id: "fabrics", name: "Fabrics", abbr: "FB" },
+    { id: "trims", name: "Trims", abbr: "TR", subCategories: ["Ribbon", "Elastic", "Buttons"] },
+    { id: "lace", name: "Lace", abbr: "LC", subCategories: ["Cotton Lace", "Net Lace"] },
+    { id: "habby", name: "Habby Items", abbr: "HB", subCategories: [] },
+    { id: "fabrics", name: "Fabrics", abbr: "FB", subCategories: ["Cotton", "Polyester", "Denim"] },
   ],
 
-  // Weight tiers used to pick the shipping rate. max=null means "and above".
-  weightTiers: [
-    { id: "t1", label: "0 – 10 kg", min: 0, max: 10 },
-    { id: "t2", label: "10 – 50 kg", min: 10, max: 50 },
-    { id: "t3", label: "50 kg +", min: 50, max: null },
-  ],
-
-  // shippingRates[routeId][method][tierId] = ZAR per kg
+  // shippingRates[routeId][method] = rate PER KG in the route's SOURCE currency.
+  // Converted to ZAR at calculation time using currencyRates.
   shippingRates: {
-    "india-sa": {
-      Air: { t1: 185, t2: 155, t3: 125 },
-      Ship: { t1: 68, t2: 55, t3: 44 },
-    },
-    "china-sa": {
-      Air: { t1: 205, t2: 172, t3: 140 },
-      Ship: { t1: 76, t2: 62, t3: 50 },
-    },
+    "india-sa": { "Air Safe": 800, "Air+": 650, Ship: 60 },
+    "china-sa": { "Air Safe": 90, "Air+": 75, Ship: 8 },
   },
 
-  // Percentages applied on the product cost (same for every category).
-  customsDutyRate: 20, // %
-  handlingFeeRate: 5, // % of product cost
-  handlingFeeFlat: 150, // flat ZAR fee per roll
-  taxRate: 15, // VAT % applied on the subtotal
+  // 1 unit of currency = ? ZAR. ZAR is the base (1).
+  currencyRates: { INR: 0.21, CNY: 2.55, ZAR: 1 },
 
-  // Cost tier indicator used in the generated supplier code.
-  // Evaluated against the final cost per meter (ZAR). max=null => top tier.
+  dutyRate: 15, // % applied when duty is enabled on a calculation (else 0%)
+  handlingFeeRate: 5, // % of product cost
+  handlingFeeFlat: 150, // flat ZAR per roll
+  taxRate: 15, // VAT % on subtotal
+
+  // Cost tier indicator for the generated supplier code, by cost per meter (ZAR).
   costTiers: [
     { id: 1, label: "Low", max: 50 },
     { id: 2, label: "Mid", max: 150 },
     { id: 3, label: "High", max: null },
   ],
 
-  // Custom pricing rules layered on top of the base calc.
-  // Matches on category + weight tier + route ("any" wildcards allowed).
+  // Custom rules by category + route ("any" wildcard allowed).
   customRules: [
     {
       id: "rule-fragile-lace",
       name: "Fragile Lace surcharge",
       category: "lace",
-      tierId: "any",
       routeId: "any",
-      adjustType: "percent", // "percent" of product cost or "flat" ZAR
+      adjustType: "percent",
       value: 3,
     },
   ],
-
-  // Reference only – app never auto-converts. User enters prices already in ZAR.
-  exchangeRates: {
-    inrToZar: 0.21,
-    cnyToZar: 2.55,
-    updatedAt: null,
-  },
 };
 
+export const DEFAULT_SUPPLIERS = [
+  { id: "sup-mumbai", name: "Mumbai Textiles", code: "MT-01", routeId: "india-sa", currency: "INR" },
+  { id: "sup-shanghai", name: "Shanghai Silk Co", code: "SS-07", routeId: "china-sa", currency: "CNY" },
+];
+
+export const DEFAULT_PRODUCTS = [
+  { id: "prod-lace-1", name: "Cotton Lace 5cm", category: "lace", subCategory: "Cotton Lace", currency: "INR", priceBasis: "per_meter", price: 22, metersInRoll: 9 },
+  { id: "prod-ribbon-1", name: "Satin Ribbon 25mm", category: "trims", subCategory: "Ribbon", currency: "CNY", priceBasis: "per_roll", price: 45, metersInRoll: 100 },
+];
+
 export const STORAGE_KEYS = {
-  config: "ipc.config.v1",
+  config: "ipc.config.v2",
   history: "ipc.history.v1",
+  suppliers: "ipc.suppliers.v1",
+  products: "ipc.products.v1",
 };

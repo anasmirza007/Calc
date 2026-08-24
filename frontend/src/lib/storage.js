@@ -1,4 +1,9 @@
-import { STORAGE_KEYS, DEFAULT_CONFIG } from "@/lib/defaults";
+import {
+  STORAGE_KEYS,
+  DEFAULT_CONFIG,
+  DEFAULT_SUPPLIERS,
+  DEFAULT_PRODUCTS,
+} from "@/lib/defaults";
 
 // Thin, safe wrappers around localStorage with JSON (de)serialization.
 
@@ -23,11 +28,32 @@ function write(key, value) {
   }
 }
 
+// Deep-merge plain objects (arrays are replaced wholesale). Keeps default
+// nested keys (e.g. a route's shipping rates) when an import omits them.
+function isPlainObject(v) {
+  return v && typeof v === "object" && !Array.isArray(v);
+}
+export function deepMerge(base, override) {
+  if (!isPlainObject(base) || !isPlainObject(override)) return override === undefined ? base : override;
+  const out = { ...base };
+  for (const k of Object.keys(override)) {
+    out[k] = isPlainObject(base[k]) && isPlainObject(override[k]) ? deepMerge(base[k], override[k]) : override[k];
+  }
+  return out;
+}
+
+// Merge over defaults so newly added keys are always present.
+export function normaliseConfig(raw) {
+  if (!raw || typeof raw !== "object") return structuredClone(DEFAULT_CONFIG);
+  return deepMerge(structuredClone(DEFAULT_CONFIG), raw);
+}
+
 export function loadConfig() {
   const stored = read(STORAGE_KEYS.config, null);
-  if (!stored) return structuredClone(DEFAULT_CONFIG);
-  // Shallow-merge so newly added default keys don't break old saved configs.
-  return { ...structuredClone(DEFAULT_CONFIG), ...stored };
+  if (!stored || stored.version !== DEFAULT_CONFIG.version) {
+    return structuredClone(DEFAULT_CONFIG);
+  }
+  return normaliseConfig(stored);
 }
 
 export function saveConfig(config) {
@@ -44,7 +70,22 @@ export function loadHistory() {
   const list = read(STORAGE_KEYS.history, []);
   return Array.isArray(list) ? list : [];
 }
-
 export function saveHistory(history) {
   return write(STORAGE_KEYS.history, history);
+}
+
+export function loadSuppliers() {
+  const list = read(STORAGE_KEYS.suppliers, null);
+  return Array.isArray(list) ? list : structuredClone(DEFAULT_SUPPLIERS);
+}
+export function saveSuppliers(list) {
+  return write(STORAGE_KEYS.suppliers, list);
+}
+
+export function loadProducts() {
+  const list = read(STORAGE_KEYS.products, null);
+  return Array.isArray(list) ? list : structuredClone(DEFAULT_PRODUCTS);
+}
+export function saveProducts(list) {
+  return write(STORAGE_KEYS.products, list);
 }
