@@ -1,0 +1,41 @@
+{
+  "summary": "Frontend-only E2E testing of the LandedCost import pricing app (pure React + localStorage, no backend). Verified dashboard metrics/empty states, desktop+mobile navigation, calculation engine correctness against expected reference values, validation, save/persistence, copy-code, and the full Configuration tab (shipping rates, weight tiers, categories, duties/fees/tax, cost tiers, custom rules, exchange rates, reset-to-defaults). All core flows pass. Reference case (Lace + India + Ship, price 20, meters 9, weight 5) produced exactly R 92,05 per meter, R 828,46 total, code LI289209 (Mid tier) with breakdown 180 / 340 (68/kg, 0-10kg tier) / 36 / 159 / 5.40 rule / 720.40 subtotal / 108.06 VAT. Config edits (rate t1=100, duty=10, tax=0, handling=0) correctly changed results (verified R 1 012,46 and R 543,40 cases) and persisted across reload; reset restored defaults while keeping history. Only minor UX/consistency issues found - no functional or blocking defects.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CalculatorPage", "issue": "Calculator form state is lost whenever the user switches tabs (e.g. goes to Configuration to tweak a rate and returns) - all inputs reset to empty and the result panel falls back to 'Awaiting valid inputs'. Given config edits directly affect the calculation, this round-trip is a likely user flow. Consider lifting form state into AppContext or persisting draft input to localStorage.", "selector": "[data-testid=\"calc-form\"]", "priority": "MEDIUM"},
+      {"component": "calculator.js generateSupplierCode", "issue": "Meters segment uses Math.round + padStart(2), so 9.5 m yields code ...'10' while the calculation uses 9.5, and 120 m yields a 9-char code (LI2891120) vs the 8-char spec example. Code length/meters value are inconsistent with the underlying input.", "selector": "[data-testid=\"result-supplier-code\"]", "priority": "LOW"},
+      {"component": "AppContext", "issue": "deleteCalculation and clearHistory are implemented but no UI exposes them - user cannot delete a saved calculation or clear history (dead code / missing feature).", "selector": "n/a", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global / Dashboard", "issues": [
+        "Decimal separator inconsistency: money via currency() uses en-ZA locale ('R 92,05', 'R 3 846,80') while the exchange-rate chips in the header and the Dashboard exchange card use toFixed ('R 0.21', 'R 0.50'). Pick one formatting helper.",
+        "Sonner toasts render top-center and overlap/obscure the desktop nav pill (Dashboard/Calculate/Configuration) while visible - consider top-right or below the header.",
+        "Recent Calculations rows show no timestamp, so repeated identical saves are indistinguishable in the list."
+      ]},
+      {"screen": "Configuration", "issues": ["Only the 'Shipping Rates' accordion section is open by default; Duties/Fees/Tax and other sections require expansion (expected behaviour, noted for future test scripts - selectors like config-customs-duty are not in the DOM until section-fees is clicked)."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Preserve calculator form input across tab switches (context or localStorage draft).",
+    "Unify currency formatting (use currency() for exchange-rate displays or switch both to the same locale).",
+    "Reposition toasts so they do not cover the desktop nav.",
+    "Decide on fixed-length supplier code / non-rounded meters segment behaviour.",
+    "Expose delete/clear-history UI or remove unused context methods."
+  ],
+  "critical_code_review_comments": [
+    "storage.loadConfig() shallow-merges stored config over DEFAULT_CONFIG; newly added nested default keys (e.g. a new weight tier's shippingRates entry) will not be back-filled for existing users - consider a versioned migration using config.version.",
+    "Configuration numeric inputs write '' (empty string) into config on clear; calculator's num() coerces these to NaN then to 0 via `|| 0`, but shippingRates '' resolves via ?? 0 - behaviour is safe today yet fragile. Prefer normalising to 0/null on blur.",
+    "History records store a full snapshot of the result object, so dashboard metrics never recompute after config changes - intentional but worth documenting for the user."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend used)", "frontend": "100% of core flows passed (11/11 scenarios); 3 minor non-blocking issues"},
+  "seed_data_creation": "Test calculations created transiently in localStorage during runs (Mumbai Textiles / EdgeCo); localStorage cleared at the start of each run.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "None required - no authentication",
+  "context_for_next_testing_agent": "Pure frontend app; no backend tests written. Use data-testids: nav-*/mobile-nav-*, input-supplier-name, select-category + category-opt-<id>, select-route + route-opt-<id>, method-ship|method-air, input-price-per-meter, input-meters, input-weight, calc-save-btn, result-save-btn, result-per-meter/-per-roll/-total/-supplier-code, copy-code-btn, result-empty, config sections section-shipping|tiers|categories|fees|costtiers|rules|exchange (MUST click section-* to expand before its inputs exist in DOM), rate-<routeId>-<Air|Ship>-<tierId>, config-customs-duty/-handling-percent/-handling-flat/-tax/-inr/-cny, add-/remove- tier|category|costtier|rule, reset-config-btn -> confirm-reset-btn. Verify state via localStorage keys ipc.config.v1 / ipc.history.v1. Amounts render with comma decimals (en-ZA), e.g. 'R 92,05'.",
+  "rca_of_the_issue": "No functional defect found. The two initial script timeouts were test-side: (1) config-customs-duty is inside a collapsed accordion section (needs section-fees click); (2) supplier-code locator missing after a tab switch because CalculatorPage unmounts and clears its local useState - the latter is reported as a MEDIUM UX issue."
+}

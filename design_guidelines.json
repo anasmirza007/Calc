@@ -1,0 +1,80 @@
+{
+  "project_name": "Import Pricing Calculator App",
+  "app_context": "Mobile-first business calculator for import pricing (India/China to South Africa). Clean, professional, SaaS aesthetic. High data density requiring excellent readability.",
+  "typography": {
+    "headings": "Manrope (font-semibold, tracking-tight)",
+    "body": "IBM Plex Sans (leading-relaxed)",
+    "monospace": "JetBrains Mono (for supplier codes, generated IDs, pricing outputs, and exchange rates)",
+    "rules": [
+      "CRITICAL: Do not use Inter, Roboto, or Open Sans for headings.",
+      "Hierarchy Gap: Jump between heading and subheading must not exceed 2 Tailwind steps.",
+      "Data Highlights: For the 'Total Landed Cost' and 'Cost Per Meter', use text-4xl to text-5xl, tracking-tighter, font-mono.",
+      "Overlines/Labels: Must be uppercase, text-xs, tracking-[0.2em] (tracking-widest)."
+    ]
+  },
+  "colors": {
+    "archetype": "SWISS & HIGH-CONTRAST / FINTECH (Archetype 4)",
+    "background": "#F8FAFC",
+    "surface": "#FFFFFF",
+    "primary": "#2563EB",
+    "primary_hover": "#1D4ED8",
+    "success": "#059669",
+    "success_bg": "#D1FAE5",
+    "text_primary": "#0F172A",
+    "text_secondary": "#475569",
+    "border": "#E2E8F0",
+    "rules": [
+      "No full-screen gradients. Use solid colors or very subtle noise textures.",
+      "Final calculated prices (ZAR) MUST use the 'success' green to indicate positive output value and draw the eye.",
+      "Hover states must explicitly set text color (e.g., hover:bg-slate-900 hover:text-white).",
+      "Avoid completely transparent backgrounds. Ensure elements have a solid or frosted (glassmorphism) background."
+    ]
+  },
+  "surfaces_and_visuals": {
+    "cards": "Subtle roundness (rounded-[8px]), 1px border (border-slate-200), flat or very soft shadow (shadow-sm). Do not overuse cards.",
+    "header_nav": "Sticky glassmorphism (bg-white/80 backdrop-blur-xl border-b border-slate-200). DO NOT use purely transparent headers over scrollable content.",
+    "inputs": "Use standard Shadcn Input styles, slightly thicker borders on focus (ring-2 ring-primary ring-offset-1).",
+    "interactive": "Flat with crisp edges. On hover: -translate-y-[1px] and shadow-md."
+  },
+  "layouts": {
+    "mobile_first": "Start with grid-cols-1. Ensure inputs and buttons are at least 44px tall for tap targets (mobile usability).",
+    "dashboard_grid": "Bento Grid style: grid-cols-1 md:grid-cols-3 gap-4 or gap-6. Highlight the most recent calculation metrics in a span-2 or full-width top card.",
+    "forms": "Use Shadcn Form/Input components. Labels left-aligned. Use gap-6 between form fields to avoid crowding.",
+    "spacing": "Generous Spacing Philosophy: p-6 or p-8 inside structural cards. Use py-12 between major sections.",
+    "tables": "Configuration tabs heavily rely on tables. Ensure tables are wrapped in overflow-x-auto for mobile. Use simple borders (border-b) rather than full grid lines for a cleaner look."
+  },
+  "components": {
+    "libraries": "Shadcn/UI (adapted for .js files), lucide-react for icons, react-hook-form.",
+    "customization": [
+      "Tabs: Use Shadcn Tabs for navigating [Dashboard, Calculate, Configuration]. Override fixed heights (h-9 to h-auto) for better mobile wrapping.",
+      "Dropdowns/Selects: Use Shadcn Select. Must NOT have transparent backgrounds.",
+      "Buttons: Pill-shaped or max 8px rounded corners. Primary actions should stand out visually.",
+      "Data Display: Use small 'Stat Cards' for Exchange Rates (INR->ZAR, CNY->ZAR)."
+    ]
+  },
+  "motion": {
+    "rules": [
+      "CRITICAL: Do NOT use 'transition: all'. It breaks transforms. Use 'transition-colors', 'transition-opacity', or 'transition-transform'.",
+      "Micro-interactions: Hover states on list items, slight scale-up on primary buttons.",
+      "Staggered entrance: Fade-in history list items using simple opacity/translate keyframes or framer-motion if installed."
+    ]
+  },
+  "accessibility_and_testing": {
+    "rules": [
+      "CRITICAL: All interactive elements MUST have data-testid attributes (e.g., data-testid='calculate-submit-btn', data-testid='config-tab-btn').",
+      "Maintain WCAG AA contrast (4.5:1 for normal text).",
+      "Focus states must be highly visible.",
+      "Labels must be associated with inputs (htmlFor)."
+    ]
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not apply generic centered layouts (.App { text-align: center; }). Keep text left-aligned.",
+    "This is a 'Pure frontend' app. ALL data must be saved to and retrieved from browser localStorage.",
+    "Pre-fill the Configuration context/localStorage with realistic editable placeholder values (e.g., Sea Freight India->SA: R 500/kg, Air Freight: R 1500/kg, Customs Duty: 20%).",
+    "Auto-derive the cost tier logic based on weight and standard shipping cost formulas.",
+    "No AI emojis. Use lucide-react for all iconography.",
+    "Create a reliable unique supplier code generator logic (e.g., 'LI' + Date/Random numbers).",
+    "CRITICAL: File extensions must be .jsx or .js. DO NOT use .tsx or .ts for this React app unless the environment explicitly enforces TypeScript (user specified js).",
+    "Prioritize responsive design: Ensure the Landed Cost Calculator output is extremely clear and fixed at the bottom or highly prominent on mobile screens."
+  ]
+}
