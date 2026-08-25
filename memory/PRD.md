@@ -29,8 +29,8 @@ Import/textile business owner in South Africa pricing rolls of goods (Trims, Lac
 - Verified by testing agent across 3 iterations (latest 95%, no crashes). Engine unit-checked: INR 100/m ×0.21×9 = R189 product, per-kg shipping + duty toggle + order total all correct.
 
 ## Backlog
-- P1: Duplicate-with-edit from a saved calculation; export history as CSV.
-- P2: Per-category duty override; live FX fetch (optional online mode); deep-merge validation warnings when a route rate is 0.
+- P1: Duplicate-with-edit (done), CSV export (done), per-category duty (done), PO order summary (done).
+- P2: Live FX fetch (optional online mode); PO export as PDF; multi-line PO document.
 - P2: Stack mobile shipping-rate table columns under 480px.
 
 ## Original engine model (superseded)

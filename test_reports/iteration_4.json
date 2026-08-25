@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend-only Playwright testing of iteration 4 (per-category duty, CP in ZAR, Duplicate & Edit, CSV export, Order Summary/PO) plus full regression. 5 browser sessions executed against the public preview URL. All 5 new features work as specified and verified numerically. Regression (validation, 3 shipping methods, price basis, qty unit, PDF popup, config export/import deep-merge, suppliers/products CRUD + Use prefill, history search, mobile/tablet nav, copy code) all pass. One real defect found: clearing a category's Duty % field silently yields 0% duty instead of falling back to the global default, and the calculator label renders 'Yes ·  %'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Configuration category duty / CalculatorPage duty label", "issue": "Clearing category-duty-<id> stores dutyRate as \"\" (empty string) not null, so calculator.js `category.dutyRate != null` is true, num(\"\")=NaN -> effective duty 0%, ignoring the global config-duty-rate fallback. Reproduced: cleared category-duty-fabrics, set config-duty-rate=33 -> duty label shows 'Yes ·  %' (blank rate) and Customs duty R 0,00 (total R 473,17 instead of R 545,x with 33%). Fix: treat empty string/NaN as unset in both effectiveDutyRate (calculator.js) and effDutyRate (CalculatorPage.jsx), or store null on clear.", "selector": "[data-testid=\"category-duty-fabrics\"], [data-testid=\"switch-duty\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Shell tablet nav row (768px)", "issues": ["Tablet nav buttons (md:block lg:hidden row) have no data-testid, unlike desktop nav-<id> and mobile-nav-<id>; nav-config resolves to the hidden desktop button at 768px so automated tablet nav clicks are not possible. Visual layout is fine."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix empty per-category Duty % handling so it falls back to the global default duty rate (calculator.js effectiveDutyRate + CalculatorPage effDutyRate); avoid rendering 'Yes ·  %'.",
+    "Add data-testid to the tablet nav row buttons in Shell.jsx (e.g. tablet-nav-<id>)."
+  ],
+  "critical_code_review_comments": [
+    "calculator.js: `category.dutyRate != null` does not guard against \"\" / NaN coming from Configuration number inputs (which store \"\" on clear); use Number.isFinite(num(category.dutyRate)) before preferring the category rate.",
+    "AppContext addCalculation uses `calc-${Date.now()}` ids - two saves in the same millisecond would collide (low risk, but crypto.randomUUID() is safer).",
+    "Configuration importConfig requires both categories[] and shippingRates; a valid file exporting only a subset (e.g. only fees) is rejected as 'Invalid configuration file'. Acceptable but worth documenting."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend)", "frontend": "95%"},
+  "seed_data_creation": "Created TEST_* calculations in browser localStorage only (per-session, non-persistent). No server data.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "verified_passing": [
+    "Per-category duty: seeds Trims 15 / Lace 15 / Habby 20 / Fabrics 12 shown in category-duty-<id>; Fabrics calc uses 12% (total R 499,25 = 189+63+22,68+159,45 +15% VAT), duty OFF -> R 473,17; Habby label 'Yes · 20%'; editing category-duty-fabrics to 8 updates live (R 490,56) and persists after reload.",
+    "CP in ZAR: INR 100/m x 9m -> result-cp-per-meter R 21,00, result-cp-per-roll R 189,00; CNY -> R 255,00/m; ZAR -> R 100,00/m; per_roll basis -> CP/m R 2,33, CP/roll R 21,00.",
+    "Duplicate & Edit: reuse-calc-0 prefills form (supplier/price/meters); editing price to 77 and saving grew history 3 -> 4, original record id preserved with unchanged buyingPrice.",
+    "CSV export: export-csv-btn downloads landedcost-history-2026-08-24.csv with header + 1 row per record (4 lines for 3 records), 23 columns incl CP/m, CP/roll, Order Total. No errors.",
+    "Order Summary/PO: select-calc-0 + select-calc-2 shows po-summary-bar '2 selected', po-landed-total R 998,50 and po-order-total R 1 997,00 exactly equal to the sum of selected records; po-export-btn downloads purchase-order-2026-08-24.csv with only 2 rows; po-clear-btn removes bar.",
+    "Regression: invalid save blocked with 'required' messages and no history entry; methods Air Safe R 1 399,32 / Air+ R 1 218,20 / Ship R 505,77; qty 3 meter order total R 168,59 = 3 x R 56,20; result-export-btn opens print popup; copy-code-btn no unhandled clipboard error (no pageerror/console error); config garbage import rejected with toast and config intact; partial import deep-merged (dutyRate 21, india-sa Ship 99 while china-sa rates preserved); supplier add/use-prefill/delete works; product use-product-0 prefills price 22 / meters 9; history search filters + history-no-results; mobile bottom nav works at 390px."
+  ],
+  "context_for_next_testing_agent": "App is pure frontend with localStorage; each Playwright session starts with empty storage, so seed history inside the same script (fill calculator then optionally clone records via localStorage JS). config-duty-rate lives under the collapsed section-fees accordion; category-duty-* under section-categories. Config import requires categories[] + shippingRates in the JSON or it is rejected. Only open bug: empty per-category duty does not fall back to global default.",
+  "rca_of_the_issue": "Configuration NumField/Input onChange writes \"\" when the field is emptied. calculator.js chooses the category rate whenever `category.dutyRate != null`, and \"\" is not null, so num(\"\") -> NaN -> Number.isFinite false -> effectiveDutyRate 0 (never reaching the config.dutyRate fallback). CalculatorPage's effDutyRate has the same guard, so the label prints an empty rate."
+}

@@ -109,6 +109,7 @@ export function calculateLandedCost(input, config) {
     input.priceBasis === "per_roll" ? priceZar : priceZar * metersInRoll;
 
   const routeMeta = getRouteMeta(input.routeId);
+  const category = (config.categories || []).find((c) => c.id === input.category) || null;
 
   // Shipping rate is stored in the route's source currency -> convert -> per kg.
   const shipRateSrc = num(config.shippingRates?.[input.routeId]?.[input.shippingMethod]) || 0;
@@ -116,7 +117,10 @@ export function calculateLandedCost(input, config) {
   const shippingCost = ratePerKg * weight;
 
   const dutyEnabled = input.dutyEnabled !== false; // default on
-  const effectiveDutyRate = dutyEnabled ? num(config.dutyRate) || 0 : 0;
+  // Per-category duty rate, falling back to the global config rate when unset/blank.
+  const catRate = num(category?.dutyRate);
+  const baseDutyRate = Number.isFinite(catRate) ? catRate : (num(config.dutyRate) || 0);
+  const effectiveDutyRate = dutyEnabled ? baseDutyRate : 0;
   const customsDuty = (productCost * effectiveDutyRate) / 100;
 
   const handlingPercent = (productCost * (num(config.handlingFeeRate) || 0)) / 100;
@@ -140,7 +144,10 @@ export function calculateLandedCost(input, config) {
     input.qtyUnit === "meter" ? costPerMeter * quantity : costPerRoll * quantity;
 
   const costTier = findCostTier(costPerMeter, config.costTiers);
-  const category = (config.categories || []).find((c) => c.id === input.category) || null;
+
+  // CP = Cost Price in ZAR (buying price converted, before shipping/duty/fees).
+  const cpZarPerMeter = metersInRoll > 0 ? productCost / metersInRoll : 0;
+  const cpZarPerRoll = productCost;
 
   const supplierCode = generateSupplierCode({
     category,
@@ -174,6 +181,8 @@ export function calculateLandedCost(input, config) {
     quantity,
     qtyUnit: input.qtyUnit,
     orderTotal: round2(orderTotal),
+    cpZarPerMeter: round2(cpZarPerMeter),
+    cpZarPerRoll: round2(cpZarPerRoll),
     totalLandedCost: round2(totalLandedCost),
     costPerRoll: round2(costPerRoll),
     costPerMeter: round2(costPerMeter),

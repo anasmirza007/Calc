@@ -71,6 +71,7 @@ export default function Shell() {
               return (
                 <button
                   key={item.id}
+                  data-testid={`tablet-nav-${item.id}`}
                   onClick={() => setTab(item.id)}
                   className={cn(
                     "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",

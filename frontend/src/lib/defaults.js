@@ -19,13 +19,13 @@ export const ROUTES = [
 ];
 
 export const DEFAULT_CONFIG = {
-  version: 2,
+  version: 3,
 
   categories: [
-    { id: "trims", name: "Trims", abbr: "TR", subCategories: ["Ribbon", "Elastic", "Buttons"] },
-    { id: "lace", name: "Lace", abbr: "LC", subCategories: ["Cotton Lace", "Net Lace"] },
-    { id: "habby", name: "Habby Items", abbr: "HB", subCategories: [] },
-    { id: "fabrics", name: "Fabrics", abbr: "FB", subCategories: ["Cotton", "Polyester", "Denim"] },
+    { id: "trims", name: "Trims", abbr: "TR", dutyRate: 15, subCategories: ["Ribbon", "Elastic", "Buttons"] },
+    { id: "lace", name: "Lace", abbr: "LC", dutyRate: 15, subCategories: ["Cotton Lace", "Net Lace"] },
+    { id: "habby", name: "Habby Items", abbr: "HB", dutyRate: 20, subCategories: [] },
+    { id: "fabrics", name: "Fabrics", abbr: "FB", dutyRate: 12, subCategories: ["Cotton", "Polyester", "Denim"] },
   ],
 
   // shippingRates[routeId][method] = rate PER KG in the route's SOURCE currency.

@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { currency, rateFmt } from "@/lib/calculator";
 import { printQuote } from "@/lib/quote";
+import { downloadCsv } from "@/lib/csv";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   TrendingUp,
   Boxes,
@@ -19,16 +21,23 @@ import {
   Search,
   CopyPlus,
   Printer,
+  FileSpreadsheet,
+  ShoppingCart,
+  X,
 } from "lucide-react";
 
 export default function Dashboard({ onNavigate }) {
   const { history, config, deleteCalculation, clearHistory, setDraft } = useApp();
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState([]);
 
   const reuse = (rec) => {
     setDraft({ ...rec.input });
     onNavigate("calculate");
   };
+
+  const toggleSelect = (id) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const q = query.trim().toLowerCase();
   const filtered = history.filter((r) => {
@@ -43,6 +52,10 @@ export default function Dashboard({ onNavigate }) {
     ].some((v) => String(v || "").toLowerCase().includes(q));
   });
   const visible = q ? filtered.slice(0, 15) : filtered.slice(0, 6);
+
+  const selectedRecords = history.filter((r) => selected.includes(r.id));
+  const poLanded = selectedRecords.reduce((s, r) => s + (r.result?.totalLandedCost || 0), 0);
+  const poOrder = selectedRecords.reduce((s, r) => s + (r.result?.orderTotal || 0), 0);
 
   const totalCalcs = history.length;
   const avgPerMeter =
@@ -165,15 +178,26 @@ export default function Dashboard({ onNavigate }) {
             <h3 className="font-heading text-lg font-semibold">Recent Calculations</h3>
           </div>
           {history.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearHistory}
-              data-testid="clear-history-btn"
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" /> Clear all
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadCsv(history)}
+                data-testid="export-csv-btn"
+                className="text-muted-foreground hover:text-primary"
+              >
+                <FileSpreadsheet className="h-4 w-4" /> Export CSV
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearHistory}
+                data-testid="clear-history-btn"
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" /> Clear all
+              </Button>
+            </div>
           )}
         </div>
 
@@ -208,6 +232,12 @@ export default function Dashboard({ onNavigate }) {
                 style={{ animationDelay: `${i * 40}ms` }}
               >
                 <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selected.includes(r.id)}
+                    onCheckedChange={() => toggleSelect(r.id)}
+                    data-testid={`select-calc-${i}`}
+                    aria-label="Add to purchase order"
+                  />
                   <Badge variant="outline" className="font-mono text-xs">{r.result?.supplierCode}</Badge>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{r.input?.supplierName}</p>
@@ -222,7 +252,7 @@ export default function Dashboard({ onNavigate }) {
                     <p className="font-mono text-lg font-bold text-success">{currency(r.result?.costPerMeter)}<span className="text-xs font-normal text-muted-foreground">/m</span></p>
                     <p className="text-xs text-muted-foreground">{currency(r.result?.totalLandedCost)} total</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => reuse(r)} data-testid={`reuse-calc-${i}`} className="text-muted-foreground hover:text-primary" title="Reuse">
+                  <Button variant="ghost" size="icon" onClick={() => reuse(r)} data-testid={`reuse-calc-${i}`} className="text-muted-foreground hover:text-primary" title="Duplicate & edit (original is kept)">
                     <CopyPlus className="h-4 w-4" />
                   </Button>
                   <Button variant="ghost" size="icon" onClick={() => printQuote(r)} data-testid={`export-calc-${i}`} className="text-muted-foreground hover:text-primary" title="Export PDF">
@@ -237,6 +267,33 @@ export default function Dashboard({ onNavigate }) {
           </div>
         )}
       </div>
+
+      {/* Purchase Order summary bar */}
+      {selectedRecords.length > 0 && (
+        <div className="fixed inset-x-0 bottom-16 z-40 px-4 md:bottom-6" data-testid="po-summary-bar">
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-slate-900 px-5 py-4 text-white shadow-xl">
+            <div className="flex items-center gap-3">
+              <ShoppingCart className="h-5 w-5 text-emerald-400" />
+              <div>
+                <p className="overline text-white/60">Purchase Order · {selectedRecords.length} selected</p>
+                <p className="text-sm text-white/70">
+                  Landed <span className="font-mono font-semibold text-white" data-testid="po-landed-total">{currency(poLanded)}</span>
+                  <span className="mx-2 text-white/30">|</span>
+                  Order total <span className="font-mono font-semibold text-emerald-400" data-testid="po-order-total">{currency(poOrder)}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="rounded-full" onClick={() => downloadCsv(selectedRecords, `purchase-order-${new Date().toISOString().slice(0, 10)}.csv`)} data-testid="po-export-btn">
+                <FileSpreadsheet className="h-4 w-4" /> Export PO
+              </Button>
+              <Button size="icon" variant="ghost" className="text-white/70 hover:bg-white/10 hover:text-white" onClick={() => setSelected([])} data-testid="po-clear-btn">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

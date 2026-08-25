@@ -178,13 +178,16 @@ export default function Configuration() {
               {config.categories.map((c) => (
                 <div key={c.id} className="rounded-md border border-border p-3" data-testid={`category-row-${c.id}`}>
                   <div className="grid grid-cols-12 items-end gap-2">
-                    <MiniField className="col-span-6 sm:col-span-5" label="Name">
+                    <MiniField className="col-span-6 sm:col-span-4" label="Name">
                       <Input value={c.name} onChange={(e) => updateCategory(c.id, "name", e.target.value)} className="h-9" />
                     </MiniField>
-                    <MiniField className="col-span-4 sm:col-span-2" label="Abbr">
+                    <MiniField className="col-span-3 sm:col-span-2" label="Abbr">
                       <Input value={c.abbr} maxLength={3} onChange={(e) => updateCategory(c.id, "abbr", e.target.value.toUpperCase())} className="h-9 font-mono uppercase" />
                     </MiniField>
-                    <div className="col-span-2 sm:col-span-5 flex justify-end">
+                    <MiniField className="col-span-3 sm:col-span-3" label="Duty %">
+                      <Input type="number" min="0" step="0.1" value={c.dutyRate ?? ""} onChange={(e) => updateCategory(c.id, "dutyRate", e.target.value === "" ? "" : parseFloat(e.target.value))} className="h-9 font-mono" data-testid={`category-duty-${c.id}`} />
+                    </MiniField>
+                    <div className="col-span-12 sm:col-span-3 flex justify-end">
                       <Button variant="ghost" size="icon" onClick={() => removeCategory(c.id)} data-testid={`remove-category-${c.id}`} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
@@ -198,9 +201,9 @@ export default function Configuration() {
           </Section>
 
           {/* Duties, fees & tax */}
-          <Section value="fees" icon={Percent} title="Duty, Fees & Tax" subtitle="Duty rate applies when enabled on a calculation">
+          <Section value="fees" icon={Percent} title="Duty, Fees & Tax" subtitle="Default duty is a fallback; each category can override it">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <NumField label="Import duty rate (%)" value={config.dutyRate} onChange={(v) => setField("dutyRate", v)} testid="config-duty-rate" />
+              <NumField label="Default duty rate (%) — fallback" value={config.dutyRate} onChange={(v) => setField("dutyRate", v)} testid="config-duty-rate" />
               <NumField label="Handling fee (% of product cost)" value={config.handlingFeeRate} onChange={(v) => setField("handlingFeeRate", v)} testid="config-handling-percent" />
               <NumField label="Handling flat fee (ZAR per roll)" value={config.handlingFeeFlat} onChange={(v) => setField("handlingFeeFlat", v)} testid="config-handling-flat" />
               <NumField label="VAT / tax (% of subtotal)" value={config.taxRate} onChange={(v) => setField("taxRate", v)} testid="config-tax" />

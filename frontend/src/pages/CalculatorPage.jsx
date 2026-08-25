@@ -31,6 +31,8 @@ export default function CalculatorPage() {
 
   const activeCategory = config.categories.find((c) => c.id === form.category);
   const subCats = activeCategory?.subCategories || [];
+  const catRateVal = parseFloat(activeCategory?.dutyRate);
+  const effDutyRate = Number.isFinite(catRateVal) ? catRateVal : config.dutyRate;
 
   const loadSupplier = (id) => {
     const s = suppliers.find((x) => x.id === id);
@@ -212,7 +214,7 @@ export default function CalculatorPage() {
             <Field label="Add Import Duty">
               <div className="flex h-11 items-center justify-between rounded-md border border-border bg-white px-3">
                 <span className="text-sm font-medium text-foreground">
-                  {form.dutyEnabled ? `Yes · ${config.dutyRate}%` : "No · 0%"}
+                  {form.dutyEnabled ? `Yes · ${effDutyRate}%` : "No · 0%"}
                 </span>
                 <Switch data-testid="switch-duty" checked={form.dutyEnabled} onCheckedChange={(v) => set("dutyEnabled", v)} />
               </div>
@@ -266,6 +268,17 @@ function ResultPanel({ result, onCopy, onSave, onExport, form }) {
         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
           <div><p className="overline text-white/50">Per Roll</p><p className="font-mono text-lg font-semibold" data-testid="result-per-roll">{currency(result.costPerRoll)}</p></div>
           <div><p className="overline text-white/50">Total Landed</p><p className="font-mono text-lg font-semibold" data-testid="result-total">{currency(result.totalLandedCost)}</p></div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-px border-b border-border bg-border">
+        <div className="bg-blue-50 p-4">
+          <p className="overline text-primary">CP · Cost Price / m (ZAR)</p>
+          <p className="font-mono text-2xl font-bold tracking-tight text-primary" data-testid="result-cp-per-meter">{currency(result.cpZarPerMeter)}</p>
+        </div>
+        <div className="bg-blue-50 p-4">
+          <p className="overline text-primary">CP · Cost Price / roll (ZAR)</p>
+          <p className="font-mono text-2xl font-bold tracking-tight text-primary" data-testid="result-cp-per-roll">{currency(result.cpZarPerRoll)}</p>
         </div>
       </div>
 
